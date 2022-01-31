@@ -45,11 +45,28 @@ With learned temperature
 # learned temperature
 import torch
 from torch import nn
+from logavgexp_pytorch import logavgexp
 
 learned_temp = nn.Parameter(torch.ones(1) * -5).exp().clamp(min = 1e-8) # make sure temperature can't hit 0
 
 x = torch.randn(1, 2048, 5)
 y = logavgexp(x, temp = learned_temp, dim = -1) # (1, 5)
+```
+
+Or you can use the `LogAvgExp` class to handle the learned temperature parameter
+
+```python
+import torch
+from logavgexp_pytorch import LogAvgExp
+
+logavgexp = LogAvgExp(
+    temp = 0.01,
+    dim = 1,
+    learned_temp = True
+)
+
+x = torch.randn(1, 2048, 5)
+y = logavgexp(x) # (1, 5)
 ```
 
 ## Citations
