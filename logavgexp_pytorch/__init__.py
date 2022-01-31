@@ -1,1 +1,1 @@
-from logavgexp_pytorch.logavgexp_pytorch import logavgexp
+from logavgexp_pytorch.logavgexp_pytorch import logavgexp, LogAvgExp
