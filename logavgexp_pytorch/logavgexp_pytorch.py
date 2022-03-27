@@ -3,11 +3,23 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from einops import rearrange
+
+# helper functions
+
 def exists(t):
     return t is not None
 
 def log(t, eps = 1e-20):
     return torch.log(t + eps)
+
+def cast_tuple(t, length = 1):
+    return t if isinstance(t, tuple) else ((t,) * length)
+
+def calc_conv_output(shape, kernel_size, padding, stride):
+    return tuple(map(lambda x: int((x[0] - x[1] + 2 * x[2]) / x[3] + 1), zip(shape, kernel_size, padding, stride)))
+
+# main function
 
 def logavgexp(
     t,
@@ -35,6 +47,8 @@ def logavgexp(
 
     out = out.unsqueeze(dim) if keepdim else out
     return out
+
+# learned temperature - logavgexp class
 
 class LogAvgExp(nn.Module):
     def __init__(
@@ -71,3 +85,41 @@ class LogAvgExp(nn.Module):
             temp = temp,
             keepdim = self.keepdim
         )
+
+# logavgexp 2d
+
+class LogAvgExp2D(nn.Module):
+    def __init__(
+        self,
+        kernel_size,
+        *,
+        padding = 0,
+        stride = 1,
+        temp = 0.01,
+        learned_temp = True,
+        eps = 1e-20,
+        **kwargs
+    ):
+        super().__init__()
+        self.padding = cast_tuple(padding, 2)
+        self.stride = cast_tuple(stride, 2)
+        self.kernel_size = cast_tuple(kernel_size, 2)
+
+        self.unfold = nn.Unfold(self.kernel_size, padding = self.padding, stride = self.stride)
+        self.logavgexp = LogAvgExp(dim = -1, eps = eps, learned_temp = learned_temp, temp = temp)
+
+    def forward(self, x):
+        """
+        b - batch
+        c - channels
+        h - height
+        w - width
+        j - reducing dimension
+        """
+
+        b, c, h, w = x.shape
+        out_h, out_w = calc_conv_output((h, w), self.kernel_size, self.padding, self.stride)
+
+        x = self.unfold(x)
+        x = rearrange(x, 'b (c j) (h w) -> b c h w j', h = out_h, w = out_w, c = c)
+        return self.logavgexp(x)

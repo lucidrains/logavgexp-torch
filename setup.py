@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
   name = 'logavgexp-pytorch',
   packages = find_packages(exclude=[]),
-  version = '0.0.2',
+  version = '0.0.3',
   license='MIT',
   description = 'LogAvgExp - Pytorch',
   author = 'Phil Wang',
@@ -16,6 +16,7 @@ setup(
     'logsumexp'
   ],
   install_requires=[
+    'einops>=0.4.1',
     'torch>=1.6'
   ],
   classifiers=[
