@@ -120,6 +120,17 @@ class LogAvgExp2D(nn.Module):
         b, c, h, w = x.shape
         out_h, out_w = calc_conv_output((h, w), self.kernel_size, self.padding, self.stride)
 
+        # calculate mask for padding, if needed
+
+        mask = None
+        if any([i > 0 for i in self.padding]):
+            pad_w, pad_h = self.padding
+            mask = torch.ones((b, c, h, w), device = x.device)
+            mask = F.pad(mask, (pad_w, pad_w, pad_h, pad_h), value = 0.)
+            mask = F.unfold(mask, kernel_size = self.kernel_size, stride = self.stride)
+            mask = rearrange(mask, 'b (c j) (h w) -> b c h w j', h = out_h, w = out_w, c = c)
+            mask = mask == 1.
+
         x = self.unfold(x)
         x = rearrange(x, 'b (c j) (h w) -> b c h w j', h = out_h, w = out_w, c = c)
-        return self.logavgexp(x)
+        return self.logavgexp(x, mask = mask)
