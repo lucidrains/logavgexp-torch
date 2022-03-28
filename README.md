@@ -81,6 +81,10 @@ img = torch.randn(1, 16, 64, 64)
 out = logavgexp_pool(img) # (1, 16, 32, 32)
 ```
 
+## Todo
+
+- [ ] look into a https://github.com/openai/triton Triton optimized version
+
 ## Citations
 
 ```bibtex
