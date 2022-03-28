@@ -1,9 +1,12 @@
 import math
+from functools import partial
+
 import torch
 from torch import nn
 import torch.nn.functional as F
 
 from einops import rearrange
+from unfoldNd import unfoldNd
 
 # helper functions
 
@@ -124,7 +127,6 @@ class LogAvgExp2D(nn.Module):
 
         mask = None
         if any([i > 0 for i in self.padding]):
-            pad_w, pad_h = self.padding
             mask = torch.ones((b, 1, h, w), device = x.device)
             mask = self.unfold(mask)
             mask = rearrange(mask, 'b j (h w) -> b 1 h w j', h = out_h, w = out_w)
@@ -132,4 +134,52 @@ class LogAvgExp2D(nn.Module):
 
         x = self.unfold(x)
         x = rearrange(x, 'b (c j) (h w) -> b c h w j', h = out_h, w = out_w, c = c)
+        return self.logavgexp(x, mask = mask)
+
+# logavgexp 3d
+
+class LogAvgExp3D(nn.Module):
+    def __init__(
+        self,
+        kernel_size,
+        *,
+        padding = 0,
+        stride = 1,
+        temp = 0.01,
+        learned_temp = True,
+        eps = 1e-20,
+        **kwargs
+    ):
+        super().__init__()
+        self.padding = cast_tuple(padding, 3)
+        self.stride = cast_tuple(stride, 3)
+        self.kernel_size = cast_tuple(kernel_size, 3)
+
+        self.unfold = partial(unfoldNd, kernel_size = self.kernel_size, padding = self.padding, stride = self.stride)
+        self.logavgexp = LogAvgExp(dim = -1, eps = eps, learned_temp = learned_temp, temp = temp)
+
+    def forward(self, x):
+        """
+        b - batch
+        c - channels
+        f - depth
+        h - height
+        w - width
+        j - reducing dimension
+        """
+
+        b, c, f, h, w = x.shape
+        out_f, out_h, out_w = calc_conv_output((f, h, w), self.kernel_size, self.padding, self.stride)
+
+        # calculate mask for padding, if needed
+
+        mask = None
+        if any([i > 0 for i in self.padding]):
+            mask = torch.ones((b, 1, f, h, w), device = x.device)
+            mask = self.unfold(mask)
+            mask = rearrange(mask, 'b j (f h w) -> b 1 f h w j', f = out_f, h = out_h, w = out_w)
+            mask = mask == 1.
+
+        x = self.unfold(x)
+        x = rearrange(x, 'b (c j) (f h w) -> b c f h w j', f = out_f, h = out_h, w = out_w, c = c)
         return self.logavgexp(x, mask = mask)
