@@ -42,10 +42,7 @@ def logavgexp(
         norm = math.log(n)
 
     t = t / temp
-    max_t = t.amax(dim = dim).detach()
-    t_exp = (t - max_t.unsqueeze(dim)).exp()
-    avg_exp = t_exp.sum(dim = dim).clamp(min = eps) / n
-    out = log(avg_exp, eps = eps) + max_t - norm
+    out = t.logsumexp(dim = dim) - norm
     out = out * temp
 
     out = out.unsqueeze(dim) if keepdim else out
